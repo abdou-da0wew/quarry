@@ -132,7 +132,7 @@ For detailed installation instructions, see [docs/installation.md](docs/installa
 ### 1. Clone
 
 ```bash
-git clone https://github.com/your-org/quarry.git
+git clone https://github.com/abdou-da0wew/quarry.git
 cd quarry
 ```
 
