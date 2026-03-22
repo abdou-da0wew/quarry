@@ -132,7 +132,8 @@ impl VectorStore {
         let mut data = Vec::new();
         reader.read_to_end(&mut data)?;
 
-        // Compute checksum of the header + data
+        // Compute checksum of the header (without checksum field) + data
+        // This matches how the checksum is computed during save
         let mut hasher = Sha256::new();
         hasher.update(&magic);
         hasher.update(&version.to_le_bytes());
@@ -182,22 +183,21 @@ impl VectorStore {
         content.extend_from_slice(&STORE_VERSION.to_le_bytes());
         content.extend_from_slice(&(self.dimension as u64).to_le_bytes());
 
-        // Compute checksum placeholder
-        let checksum_offset = content.len();
-        content.extend_from_slice(&0u64.to_le_bytes());
-
-        // Add data
-        content.extend_from_slice(&data);
-
-        // Compute final checksum
+        // Compute checksum over header + data (NOT including checksum field itself)
         let mut hasher = Sha256::new();
-        hasher.update(&content);
+        hasher.update(STORE_MAGIC);
+        hasher.update(&STORE_VERSION.to_le_bytes());
+        hasher.update(&(self.dimension as u64).to_le_bytes());
+        hasher.update(&data);
         let checksum = u64::from_be_bytes(
             hasher.finalize()[..8].try_into().map_err(|_| StoreError::ChecksumMismatch)?
         );
 
-        // Write checksum
-        content[checksum_offset..checksum_offset + 8].copy_from_slice(&checksum.to_le_bytes());
+        // Add checksum to content
+        content.extend_from_slice(&checksum.to_le_bytes());
+
+        // Add data
+        content.extend_from_slice(&data);
 
         // Write to temp file first, then rename for atomicity
         let temp_path = path.with_extension("tmp");
@@ -406,9 +406,12 @@ mod tests {
     use tempfile::TempDir;
 
     fn make_embedding(dim: usize, val: f32) -> Vec<f32> {
+        // Create a normalized embedding with the first value set to val
+        // and the second value set to (1-val) to ensure different directions
         let mut v = vec![0.0f32; dim];
-        if v.len() > 0 {
+        if v.len() >= 2 {
             v[0] = val;
+            v[1] = 1.0 - val;
         }
         // L2 normalize
         let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();

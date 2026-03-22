@@ -29,7 +29,7 @@ use tracing::{info, warn, error, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use embedder::{Embedder, EmbedderConfig, EMBEDDING_DIM};
-use indexer::{SharedVectorStore, VectorStore};
+use indexer::{SharedVectorStore, VectorStore, SearchHit};
 
 /// Application state shared across handlers.
 struct AppState {
@@ -131,7 +131,8 @@ async fn main() -> Result<()> {
     let store = if store_path.exists() {
         match SharedVectorStore::load(&store_path) {
             Ok(s) => {
-                info!(docs = s.len(), "Vector store loaded from file");
+                let doc_count: usize = s.len();
+                info!(docs = doc_count, "Vector store loaded from file");
                 s
             }
             Err(e) => {
@@ -144,7 +145,8 @@ async fn main() -> Result<()> {
         SharedVectorStore::new(EMBEDDING_DIM)
     };
 
-    info!(docs = store.len(), "Vector store ready");
+    let doc_count_ready: usize = store.len();
+    info!(docs = doc_count_ready, "Vector store ready");
 
     // Initialize embedder
     let config = EmbedderConfig::new(&model_path, &tokenizer_path);
@@ -213,17 +215,17 @@ async fn shutdown_signal() {
 async fn search(
     State(state): State<Arc<AppState>>,
     Json(req): Json<SearchRequest>,
-) -> impl IntoResponse {
+) -> Result<(StatusCode, Json<SearchResponse>), (StatusCode, Json<ErrorResponse>)> {
     let start = Instant::now();
 
     // Validate query
     if req.query.trim().is_empty() {
-        return (
+        return Err((
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
                 error: "Query cannot be empty".to_string(),
             }),
-        );
+        ));
     }
 
     // Generate query embedding
@@ -231,26 +233,26 @@ async fn search(
         Ok(e) => e,
         Err(e) => {
             error!(error = %e, "Failed to embed query");
-            return (
+            return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
                     error: format!("Embedding error: {}", e),
                 }),
-            );
+            ));
         }
     };
 
     // Search
-    let hits = match state.store.search(&query_embedding, req.top_k) {
+    let hits: Vec<SearchHit> = match state.store.search(&query_embedding, req.top_k) {
         Ok(h) => h,
         Err(e) => {
             error!(error = %e, "Search failed");
-            return (
+            return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
                     error: format!("Search error: {}", e),
                 }),
-            );
+            ));
         }
     };
 
@@ -277,7 +279,7 @@ async fn search(
         results,
     };
 
-    (StatusCode::OK, Json(response))
+    Ok((StatusCode::OK, Json(response)))
 }
 
 async fn health() -> impl IntoResponse {

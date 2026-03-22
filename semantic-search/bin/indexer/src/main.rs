@@ -1,6 +1,7 @@
 //! Indexer binary: Reads Go crawler output, generates embeddings, builds vector store.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -87,12 +88,12 @@ async fn main() -> Result<()> {
     );
 
     // Setup signal handler for graceful shutdown
-    let shutdown = Arc::new(tokio::sync::Notify::new());
+    let shutdown = Arc::new(AtomicBool::new(false));
     let shutdown_clone = shutdown.clone();
     tokio::spawn(async move {
         let _ = signal::ctrl_c().await;
         info!("Received shutdown signal");
-        shutdown_clone.notify_waiters();
+        shutdown_clone.store(true, Ordering::SeqCst);
     });
 
     // Initialize embedder
@@ -139,7 +140,7 @@ async fn main() -> Result<()> {
 
     for chunk in documents.chunks(config.batch_size) {
         // Check for shutdown signal
-        if shutdown.notified().now_or_never().is_some() {
+        if shutdown.load(Ordering::SeqCst) {
             warn!("Shutdown requested, saving progress");
             break;
         }

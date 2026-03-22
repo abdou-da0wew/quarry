@@ -7,8 +7,10 @@ use std::sync::Arc;
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
-use ort::{session::builder::GraphOptimizationLevel, session::Session, value::Value};
-use tokio::sync::RwLock;
+use ort::session::builder::GraphOptimizationLevel;
+use ort::session::Session;
+use ort::value::Value;
+use tokio::sync::{RwLock, Mutex};
 
 use crate::tokenizer::{BatchEncoding, Tokenizer, TokenizerError};
 use crate::vram::{VramError, VramMonitor};
@@ -24,7 +26,7 @@ pub enum EmbeddingError {
     },
 
     #[error("Failed to initialize ONNX environment: {0}")]
-    EnvironmentError(#[from] ort::Error),
+    EnvironmentError(String),
 
     #[error("Tokenizer error: {0}")]
     TokenizerError(#[from] TokenizerError),
@@ -112,10 +114,16 @@ impl EmbedderConfig {
 
 /// Embedder generates text embeddings using ONNX Runtime.
 pub struct Embedder {
-    session: Arc<Session>,
+    session: Arc<Mutex<Session>>,
     tokenizer: Tokenizer,
     vram_monitor: VramMonitor,
     config: EmbedderConfig,
+    /// Name of the input_ids input
+    input_ids_name: String,
+    /// Name of the attention_mask input
+    attention_mask_name: String,
+    /// Name of the output tensor
+    output_name: String,
     /// Pre-allocated output buffer for single queries
     query_buffer: RwLock<Vec<f32>>,
 }
@@ -137,7 +145,7 @@ impl Embedder {
         let vram_monitor = VramMonitor::new()?;
 
         // Build ONNX session
-        let session = Self::build_session(&config)?;
+        let (session, input_ids_name, attention_mask_name, output_name) = Self::build_session(&config)?;
 
         // Log initial VRAM usage
         vram_monitor.log_usage("after_model_load");
@@ -146,31 +154,38 @@ impl Embedder {
         let query_buffer = RwLock::new(vec![0.0f32; EMBEDDING_DIM]);
 
         Ok(Self {
-            session: Arc::new(session),
+            session: Arc::new(Mutex::new(session)),
             tokenizer,
             vram_monitor,
             config,
+            input_ids_name,
+            attention_mask_name,
+            output_name,
             query_buffer,
         })
     }
 
     /// Build ONNX session with appropriate providers.
-    fn build_session(config: &EmbedderConfig) -> Result<Session, EmbeddingError> {
+    fn build_session(config: &EmbedderConfig) -> Result<(Session, String, String, String), EmbeddingError> {
         let path_str = config.model_path.display().to_string();
 
-        let session = Session::builder()
-            .map_err(EmbeddingError::EnvironmentError)?
+        let mut builder = Session::builder()
+            .map_err(|e| EmbeddingError::EnvironmentError(e.to_string()))?;
+        
+        builder = builder
             .with_optimization_level(GraphOptimizationLevel::Level3)
-            .map_err(EmbeddingError::EnvironmentError)?
+            .map_err(|e| EmbeddingError::EnvironmentError(e.to_string()))?
             .with_intra_threads(4)
-            .map_err(EmbeddingError::EnvironmentError)?
+            .map_err(|e| EmbeddingError::EnvironmentError(e.to_string()))?;
+
+        let session = builder
             .commit_from_file(&config.model_path)
             .map_err(|e| EmbeddingError::ModelLoadError {
                 path: path_str,
                 source: e,
             })?;
 
-        // Verify input/output shapes
+        // Get input/output names
         let inputs = session.inputs();
         let outputs = session.outputs();
 
@@ -180,11 +195,35 @@ impl Embedder {
             "ONNX session created"
         );
 
+        // Extract input names - typically "input_ids" and "attention_mask"
+        let input_ids_name = inputs
+            .iter()
+            .find(|i| i.name().contains("input") || i.name().contains("ids"))
+            .map(|i| i.name().to_string())
+            .unwrap_or_else(|| inputs[0].name().to_string());
+
+        let attention_mask_name = inputs
+            .iter()
+            .find(|i| i.name().contains("attention") || i.name().contains("mask"))
+            .map(|i| i.name().to_string())
+            .unwrap_or_else(|| {
+                if inputs.len() > 1 {
+                    inputs[1].name().to_string()
+                } else {
+                    "attention_mask".to_string()
+                }
+            });
+
+        // Get output name
+        let output_name = outputs
+            .first()
+            .map(|o| o.name().to_string())
+            .unwrap_or_else(|| "last_hidden_state".to_string());
+
         for (i, input) in inputs.iter().enumerate() {
             debug!(
                 input_index = i,
-                name = input.name,
-                input_type = ?input.input_type,
+                name = input.name(),
                 "Model input"
             );
         }
@@ -192,13 +231,12 @@ impl Embedder {
         for (i, output) in outputs.iter().enumerate() {
             debug!(
                 output_index = i,
-                name = output.name,
-                output_type = ?output.output_type,
+                name = output.name(),
                 "Model output"
             );
         }
 
-        Ok(session)
+        Ok((session, input_ids_name, attention_mask_name, output_name))
     }
 
     /// Warm up the model with a dummy inference.
@@ -257,7 +295,7 @@ impl Embedder {
         let batch_size = encoding.batch_size;
         let seq_len = encoding.seq_len;
 
-        // Create input tensors using (shape, data) format for ort compatibility
+        // Create input tensors using (shape, data) format for ort 2.0
         let input_ids_shape = vec![batch_size, seq_len];
         let attention_mask_shape = vec![batch_size, seq_len];
 
@@ -267,23 +305,29 @@ impl Embedder {
         let attention_mask_value = Value::from_array((attention_mask_shape, encoding.attention_mask.clone()))
             .map_err(|e| EmbeddingError::InferenceError(format!("Failed to create attention_mask value: {}", e)))?;
 
-        // Run inference
-        let outputs = self.session
-            .run(ort::inputs![
-                "input_ids" => input_ids_value,
-                "attention_mask" => attention_mask_value,
+        // Run inference using the extracted names
+        let mut session = self.session.lock().await;
+        let outputs = session
+            .run(vec![
+                (self.input_ids_name.as_str(), input_ids_value),
+                (self.attention_mask_name.as_str(), attention_mask_value),
             ])
             .map_err(|e| EmbeddingError::InferenceError(format!("Inference failed: {}", e)))?;
 
-        // Extract output tensor
-        let output_tensor = outputs.get(0)
-            .ok_or_else(|| EmbeddingError::InferenceError("No output tensor".to_string()))?;
+        // Extract output tensor by name
+        let output_tensor = outputs
+            .get(&self.output_name)
+            .ok_or_else(|| EmbeddingError::InferenceError(format!("Output '{}' not found", self.output_name)))?;
 
-        let output_array = output_tensor
+        // Extract the tensor data
+        // try_extract_tensor returns a tuple (&Shape, &[f32])
+        let (shape, data) = output_tensor
             .try_extract_tensor::<f32>()
             .map_err(|e| EmbeddingError::InferenceError(format!("Failed to extract output: {}", e)))?;
-
-        let output_shape = output_array.shape();
+        
+        // Get the shape and convert to vec
+        let output_shape: Vec<usize> = shape.iter().map(|&d| d as usize).collect();
+        
         debug!(
             shape = ?output_shape,
             "Inference output shape"
@@ -293,8 +337,7 @@ impl Embedder {
         let mut embeddings = Vec::with_capacity(batch_size);
 
         // Shape is typically [batch_size, seq_len, hidden_dim] or [batch_size, hidden_dim]
-        // For sentence-transformers, we typically want mean pooled output
-        match output_shape {
+        match output_shape.as_slice() {
             [bs, seq, dim] if *bs == batch_size && *dim == EMBEDDING_DIM => {
                 // Shape: [batch_size, seq_len, hidden_dim]
                 // Mean pool over sequence dimension
@@ -305,7 +348,8 @@ impl Embedder {
                     for j in 0..*seq {
                         if encoding.attention_mask[i * seq_len + j] > 0 {
                             for k in 0..EMBEDDING_DIM {
-                                embedding[k] += output_array[[i, j, k]];
+                                let idx = i * seq * EMBEDDING_DIM + j * EMBEDDING_DIM + k;
+                                embedding[k] += data[idx];
                             }
                             count += 1.0;
                         }
@@ -326,7 +370,8 @@ impl Embedder {
                 for i in 0..batch_size {
                     let mut embedding = vec![0.0f32; EMBEDDING_DIM];
                     for k in 0..EMBEDDING_DIM {
-                        embedding[k] = output_array[[i, k]];
+                        let idx = i * EMBEDDING_DIM + k;
+                        embedding[k] = data[idx];
                     }
                     l2_normalize(&mut embedding);
                     embeddings.push(embedding);
@@ -335,7 +380,7 @@ impl Embedder {
             _ => {
                 return Err(EmbeddingError::InvalidShape {
                     expected: vec![batch_size, EMBEDDING_DIM],
-                    actual: output_shape.to_vec(),
+                    actual: output_shape,
                 });
             }
         }

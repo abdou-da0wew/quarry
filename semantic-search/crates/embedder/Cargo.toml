@@ -13,7 +13,6 @@ tracing.workspace = true
 nvml-wrapper.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
-ndarray.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]

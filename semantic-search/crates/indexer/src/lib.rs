@@ -6,7 +6,7 @@
 pub mod store;
 pub mod document;
 
-pub use store::{VectorStore, SearchHit, StoreError};
+pub use store::{VectorStore, SharedVectorStore, SearchHit, StoreError};
 pub use document::{Document, DocumentLoader, DocumentError};
 
 /// Result type for indexer operations

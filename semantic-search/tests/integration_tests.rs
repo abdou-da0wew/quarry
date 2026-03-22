@@ -269,7 +269,7 @@ fn test_concurrent_query_race() {
 /// Test L2 normalization of embeddings.
 #[test]
 fn test_l2_normalization() {
-    use embedder::model::cosine_similarity;
+    use embedder::cosine_similarity;
 
     // Two unit vectors should have cosine similarity based on angle
     let a = vec![1.0, 0.0, 0.0, 0.0];

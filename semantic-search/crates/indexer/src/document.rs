@@ -81,7 +81,12 @@ impl Document {
         let mut hasher = Sha256::new();
         hasher.update(page.url.as_bytes());
         let hash = hasher.finalize();
-        let id = format!("{:x}", &hash[..8]);
+        
+        // Convert first 8 bytes to hex string
+        let id = hash[..8]
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
 
         Self {
             id,

@@ -24,7 +24,7 @@ pub mod model;
 pub mod tokenizer;
 pub mod vram;
 
-pub use model::{Embedder, EmbedderConfig, EmbeddingError};
+pub use model::{Embedder, EmbedderConfig, EmbeddingError, cosine_similarity};
 pub use tokenizer::Tokenizer;
 pub use vram::{VramMonitor, VramError};
 
