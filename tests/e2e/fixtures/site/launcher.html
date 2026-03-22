@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Launcher Configuration | Minecraft Linux</title>
+</head>
+<body>
+    <nav>
+        <a href="/index.html">Home</a>
+        <a href="/installation.html">Installation</a>
+        <a href="/launcher.html">Launcher</a>
+        <a href="/troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <main>
+        <h1>Launcher Configuration</h1>
+        <p>The Minecraft launcher can be configured to optimize performance and manage multiple installations.</p>
+        
+        <h2>Memory Settings</h2>
+        <p>To allocate more memory to Minecraft, edit the launcher configuration file:</p>
+        <pre>
+# ~/.minecraft/launcher.properties
+max_memory=4G
+min_memory=512M
+        </pre>
+        
+        <h2>Java Arguments</h2>
+        <p>Custom Java arguments can improve garbage collection and startup time:</p>
+        <pre>
+-Xmx4G -Xms512M -XX:+UseG1GC -XX:+ParallelRefProcEnabled
+        </pre>
+        
+        <h2>Multiple Profiles</h2>
+        <p>The launcher supports multiple game profiles with different versions and mod configurations.</p>
+        <ul>
+            <li>Click "Configurations" in the launcher</li>
+            <li>Click "New" to create a profile</li>
+            <li>Select the Minecraft version and any mods</li>
+            <li>Save and launch the profile</li>
+        </ul>
+    </main>
+</body>
+</html>

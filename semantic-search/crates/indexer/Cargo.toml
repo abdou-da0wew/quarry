@@ -1,0 +1,23 @@
+[package]
+name = "indexer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+embedder = { path = "../embedder" }
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+memmap2.workspace = true
+bincode.workspace = true
+sha2.workspace = true
+walkdir.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -1,0 +1,38 @@
+# Semantic Search Configuration
+# 
+# This configuration file controls the behavior of the indexer and search binaries.
+# Environment variable: SEMANTIC_SEARCH_CONFIG
+
+# Path to ONNX model file
+model_path = "models/model.onnx"
+
+# Path to tokenizer.json file
+tokenizer_path = "models/tokenizer.json"
+
+# Path to Go crawler output directory
+crawler_output = "crawler/output"
+
+# Path to save vector store
+store_output = "data/store.bin"
+
+# Maximum batch size for embedding inference
+# Lower values use less VRAM; start with 8 for MX250
+batch_size = 8
+
+# Maximum sequence length for tokenizer
+# all-MiniLM-L6-v2 supports up to 256 tokens
+max_seq_len = 256
+
+# VRAM ceiling in megabytes
+# MX250 has 2048 MiB total; 1500 MiB leaves 512 MiB for system
+vram_ceiling_mb = 1500
+
+# Search API settings (for bin/api)
+[api]
+host = "0.0.0.0"
+port = 3000
+
+# Logging settings
+[logging]
+level = "info"
+format = "json"  # "json" or "pretty"

@@ -1,0 +1,259 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  GO_VERSION: '1.22'
+  RUST_VERSION: 'stable'
+
+jobs:
+  go-test:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    defaults:
+      run:
+        working-directory: crawler
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: crawler/go.sum
+      
+      - name: Download dependencies
+        run: go mod download
+      
+      - name: Verify dependencies
+        run: go mod verify
+      
+      - name: Run go vet
+        run: go vet ./...
+      
+      - name: Run go fmt check
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Code is not formatted. Run 'gofmt -w .'"
+            gofmt -d .
+            exit 1
+          fi
+      
+      - name: Run tests with race detector
+        run: go test ./... -race -v -timeout 10m
+      
+      - name: Run tests with coverage
+        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+      
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: crawler/coverage.out
+          retention-days: 7
+
+  rust-test:
+    name: Rust Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    defaults:
+      run:
+        working-directory: semantic-search
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('semantic-search/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+      
+      - name: Cache cargo target
+        uses: actions/cache@v4
+        with:
+          path: semantic-search/target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('semantic-search/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-
+      
+      - name: Check formatting
+        run: cargo fmt -- --check
+      
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      
+      - name: Run tests
+        run: cargo test --workspace --verbose
+        env:
+          # No GPU available in CI, skip GPU-specific tests
+          QUARRY_SKIP_GPU_TESTS: 1
+      
+      - name: Run tests with all features
+        run: cargo test --workspace --all-features --verbose
+        env:
+          QUARRY_SKIP_GPU_TESTS: 1
+      
+      - name: Build release
+        run: cargo build --release --verbose
+
+  e2e-test:
+    name: E2E Pipeline Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [go-test, rust-test]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: crawler/go.sum
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Python dependencies
+        run: |
+          pip install torch transformers optimum onnx
+        working-directory: semantic-search
+      
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            semantic-search/target
+          key: ${{ runner.os }}-cargo-e2e-${{ hashFiles('semantic-search/Cargo.lock') }}
+      
+      - name: Build Go crawler
+        run: |
+          cd crawler
+          go build -o bin/crawler ./cmd/crawler
+      
+      - name: Build Rust binaries
+        run: |
+          cd semantic-search
+          cargo build --release
+        env:
+          QUARRY_SKIP_GPU_TESTS: 1
+      
+      - name: Download and export ONNX model
+        run: |
+          cd semantic-search
+          python scripts/export_onnx.py --model sentence-transformers/all-MiniLM-L6-v2 --output models/
+        env:
+          # CPU-only export
+          CUDA_VISIBLE_DEVICES: ""
+      
+      - name: Run E2E pipeline test
+        run: |
+          chmod +x tests/e2e/pipeline_test.sh
+          ./tests/e2e/pipeline_test.sh
+        env:
+          QUARRY_SKIP_GPU_TESTS: 1
+      
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-artifacts
+          path: |
+            /tmp/quarry-e2e-*/
+            tests/e2e/*.log
+          retention-days: 7
+
+  lint:
+    name: Lint and Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Check for TODO/FIXME in code
+        run: |
+          echo "Checking for unresolved TODO/FIXME comments..."
+          if grep -rn "TODO\|FIXME\|XXX\|HACK" --include="*.go" --include="*.rs" crawler/ semantic-search/crates/ semantic-search/bin/ 2>/dev/null; then
+            echo "::warning::Found unresolved TODO/FIXME comments in source code"
+          fi
+      
+      - name: Check for large files
+        run: |
+          echo "Checking for files larger than 1MB..."
+          find . -type f -size +1M -not -path "./.git/*" -not -path "./semantic-search/target/*" -not -name "*.onnx" -not -name "*.gguf" | while read file; do
+            echo "::warning::$file is larger than 1MB"
+          done
+      
+      - name: Validate JSON files
+        run: |
+          echo "Validating JSON files..."
+          find . -name "*.json" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./semantic-search/target/*" | while read file; do
+            if ! python3 -c "import json; json.load(open('$file'))" 2>/dev/null; then
+              echo "::error::$file is not valid JSON"
+              exit 1
+            fi
+          done
+      
+      - name: Check documentation links
+        run: |
+          echo "Checking for broken internal links in docs..."
+          cd docs
+          for file in *.md; do
+            # Extract relative links and check if files exist
+            grep -oE '\]\([^)]+\)' "$file" | grep -v '^](http' | grep -v '^](#' | sed 's/](\(.*\))/\1/' | while read link; do
+              if [ ! -f "$link" ] && [ ! -f "${link%.md}.md" ]; then
+                echo "::warning::Link $link in $file may be broken"
+              fi
+            done
+          done
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
