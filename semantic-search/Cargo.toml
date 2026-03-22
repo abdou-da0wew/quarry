@@ -17,7 +17,7 @@ license = "MIT"
 
 [workspace.dependencies]
 # ONNX Runtime
-ort = { version = "2.0", features = ["cuda", "load-dynamic"] }
+ort = { version = "2.0.0-rc.12", features = ["cuda", "load-dynamic"] }
 
 # Tokenization
 tokenizers = "0.15"

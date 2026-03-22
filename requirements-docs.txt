@@ -1,0 +1,20 @@
+# MkDocs and dependencies for quarry documentation
+# Install with: pip install -r requirements-docs.txt
+
+# Core
+mkdocs>=1.5.0
+
+# Material theme
+mkdocs-material>=9.5.0
+
+# Plugins
+mkdocs-git-revision-date-localized-plugin>=1.2.0
+mkdocs-minify-plugin>=0.7.0
+mkdocs-tags-plugin>=0.1.0
+mike>=2.0.0  # Versioning
+
+# Markdown extensions (bundled with mkdocs-material, listed for reference)
+# pymdown-extensions>=10.0
+
+# Optional: for development
+mkdocs-macros-plugin>=1.0.0

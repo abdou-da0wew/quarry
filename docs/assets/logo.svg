@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <defs>
+    <linearGradient id="stoneGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7C4DFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#536DFE;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Stone/rock shape representing quarry -->
+  <path fill="url(#stoneGradient)" d="M12 2L3 9l1.5 9L12 22l7.5-4L21 9L12 2z"/>
+  <!-- Facet lines for depth -->
+  <path fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5" d="M12 2L7 9l5 13M12 2l5 7-5 13M7 9l5 4 5-4"/>
+  <!-- Highlight -->
+  <path fill="rgba(255,255,255,0.2)" d="M12 2L7 9h10L12 2z"/>
+</svg>

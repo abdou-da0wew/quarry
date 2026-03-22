@@ -1,0 +1,173 @@
+site_name: quarry
+site_description: Concurrent site crawler + semantic search engine for AI agents
+site_author: quarry contributors
+site_url: https://your-org.github.io/quarry
+
+repo_name: your-org/quarry
+repo_url: https://github.com/your-org/quarry
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.png
+  palette:
+    # Dark mode (default)
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.instant      # Single-page app navigation
+    - navigation.tracking     # Anchor tracking in URL
+    - navigation.tabs         # Top-level tabs
+    - navigation.sections     # Section groupings in sidebar
+    - navigation.expand       # Expand sections by default
+    - navigation.indexes      # Section index pages
+    - navigation.top          # Back-to-top button
+    - search.suggest          # Search suggestions
+    - search.highlight        # Highlight search results
+    - search.share            # Share search results
+    - toc.follow              # Auto-scroll TOC
+    - content.code.copy       # Copy code buttons
+    - content.code.annotate   # Code annotations
+    - content.tabs.link       # Link tabbed content
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+    admonition:
+      note: material/information-outline
+      abstract: material/format-list-bulleted
+      info: material/information
+      tip: material/lightbulb-outline
+      success: material/check-circle-outline
+      question: material/help-circle-outline
+      warning: material/alert-outline
+      failure: material/close-circle-outline
+      danger: material/alert
+      bug: material/bug-outline
+      example: material/flask-outline
+      quote: material/format-quote-close
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Quick Start: index.md#quick-start
+  - Components:
+    - Go Crawler: crawler.md
+    - Semantic Search: semantic-search.md
+  - Guides:
+    - Model Export: model-export.md
+    - Testing: testing.md
+    - Performance Tuning: performance.md
+  - Reference:
+    - Architecture: architecture.md
+    - Configuration: semantic-search.md#configtoml-reference
+    - HTTP API: semantic-search.md#http-api-reference
+    - CLI Reference: crawler.md#cli-reference
+  - Project:
+    - Contributing: contributing.md
+    - Roadmap: roadmap.md
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+      lang:
+        - en
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: datetime
+      timezone: UTC
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+  - tags
+
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+      slugify: !!python/object/apply:pymdownx.slugs.uslugify
+        kwds:
+          case: lower
+
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: your-org
+      repo: quarry
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX  # Replace with your GA4 ID
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/your-org/quarry
+      name: GitHub Repository
+  version:
+    provider: mike
+    default: latest
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+
+watch:
+  - docs
+
+# Build settings
+strict: true
+dev_addr: "127.0.0.1:8000"

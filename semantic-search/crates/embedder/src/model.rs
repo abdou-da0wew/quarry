@@ -7,7 +7,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
-use ort::{GraphOptimizationLevel, Session, Value};
+use ort::{session::builder::GraphOptimizationLevel, session::Session, value::Value};
 use tokio::sync::RwLock;
 
 use crate::tokenizer::{BatchEncoding, Tokenizer, TokenizerError};
@@ -257,22 +257,14 @@ impl Embedder {
         let batch_size = encoding.batch_size;
         let seq_len = encoding.seq_len;
 
-        // Create input tensors
-        let input_ids_shape = [batch_size, seq_len];
-        let input_ids_array = ndarray::ArrayD::from_shape_vec(
-            ndarray::IxDyn(&input_ids_shape),
-            encoding.input_ids.clone(),
-        ).map_err(|e| EmbeddingError::InferenceError(format!("Failed to create input_ids tensor: {}", e)))?;
-
-        let attention_mask_array = ndarray::ArrayD::from_shape_vec(
-            ndarray::IxDyn(&input_ids_shape),
-            encoding.attention_mask.clone(),
-        ).map_err(|e| EmbeddingError::InferenceError(format!("Failed to create attention_mask tensor: {}", e)))?;
+        // Create input tensors using (shape, data) format for ort compatibility
+        let input_ids_shape = vec![batch_size, seq_len];
+        let attention_mask_shape = vec![batch_size, seq_len];
 
         // Create ONNX values
-        let input_ids_value = Value::from_array(input_ids_array)
+        let input_ids_value = Value::from_array((input_ids_shape, encoding.input_ids.clone()))
             .map_err(|e| EmbeddingError::InferenceError(format!("Failed to create input_ids value: {}", e)))?;
-        let attention_mask_value = Value::from_array(attention_mask_array)
+        let attention_mask_value = Value::from_array((attention_mask_shape, encoding.attention_mask.clone()))
             .map_err(|e| EmbeddingError::InferenceError(format!("Failed to create attention_mask value: {}", e)))?;
 
         // Run inference
@@ -280,7 +272,7 @@ impl Embedder {
             .run(ort::inputs![
                 "input_ids" => input_ids_value,
                 "attention_mask" => attention_mask_value,
-            ].map_err(|e| EmbeddingError::InferenceError(format!("Failed to create inputs: {}", e)))?)
+            ])
             .map_err(|e| EmbeddingError::InferenceError(format!("Inference failed: {}", e)))?;
 
         // Extract output tensor

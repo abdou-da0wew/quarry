@@ -5,7 +5,7 @@
 use std::path::Path;
 use thiserror::Error;
 use tokenizers::Tokenizer as HfTokenizer;
-use tokenizers::{EncodeInput, Encoding, PaddingStrategy, TruncationStrategy};
+use tokenizers::Encoding;
 
 #[derive(Error, Debug)]
 pub enum TokenizerError {
@@ -46,19 +46,14 @@ impl Tokenizer {
         Ok(Self { inner, max_length })
     }
 
-    /// Load tokenizer from a HuggingFace model ID.
+    /// Load tokenizer from a HuggingFace model directory.
     ///
     /// # Arguments
-    /// * `model_id` - HuggingFace model identifier (e.g., "sentence-transformers/all-MiniLM-L6-v2")
+    /// * `model_dir` - Path to directory containing tokenizer.json
     /// * `max_length` - Maximum sequence length
-    pub fn from_pretrained(model_id: &str, max_length: usize) -> Result<Self, TokenizerError> {
-        let inner = HfTokenizer::from_pretrained(model_id, None)
-            .map_err(|e| TokenizerError::LoadError {
-                path: model_id.to_string(),
-                source: e,
-            })?;
-
-        Ok(Self { inner, max_length })
+    pub fn from_pretrained<P: AsRef<Path>>(model_dir: P, max_length: usize) -> Result<Self, TokenizerError> {
+        let tokenizer_path = model_dir.as_ref().join("tokenizer.json");
+        Self::from_file(&tokenizer_path, max_length)
     }
 
     /// Tokenize a single text string.

@@ -1,0 +1,99 @@
+# Binaries
+crawler/bin/
+semantic-search/target/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.out
+go.work
+go.work.sum
+
+# Rust
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+
+# ONNX models (large files)
+*.onnx
+models/
+!models/.gitkeep
+
+# Output data
+output/
+data/
+*.json
+!config.json
+!package.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test artifacts
+/tmp/
+*.tmp
+*.temp
+
+# Documentation build
+site/
+
+# Index files (generated)
+index.hnsw
+index.vecs
+index.meta
+inverted-index.json
+manifest.json
+pages/

@@ -422,13 +422,13 @@ func TestIndexBuilder(t *testing.T) {
                 t.Fatalf("failed to read inverted index: %v", err)
         }
 
-        var idx index.InvertedIndex
+        var idx map[string][]string
         if err := json.Unmarshal(data, &idx); err != nil {
                 t.Fatalf("failed to parse inverted index: %v", err)
         }
 
         // Check that "test" is indexed (appears 3 times)
-        if urls, ok := idx.Terms["test"]; !ok {
+        if urls, ok := idx["test"]; !ok {
                 t.Error("expected 'test' to be indexed")
         } else if len(urls) != 1 || urls[0] != doc.URL {
                 t.Errorf("expected 'test' to map to %q, got %v", doc.URL, urls)

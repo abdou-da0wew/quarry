@@ -1,0 +1,122 @@
+/* quarry documentation custom styles */
+
+/* Hero section styling */
+.md-typeset .md-button--primary {
+  background-color: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+}
+
+.md-typeset .md-button--primary:hover {
+  background-color: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+}
+
+/* Admonition icons for quarry-specific callouts */
+.md-typeset .admonition.gpu,
+.md-typeset details.gpu {
+  border-color: #76B900;
+}
+
+.md-typeset .admonition.gpu > .admonition-title,
+.md-typeset details.gpu > .admonition-title {
+  background-color: rgba(118, 185, 0, 0.1);
+  border-color: #76B900;
+}
+
+.md-typeset .admonition.gpu > .admonition-title::before,
+.md-typeset details.gpu > .admonition-title::before {
+  background-color: #76B900;
+  -webkit-mask-image: var(--md-admonition-icon--info);
+  mask-image: var(--md-admonition-icon--info);
+}
+
+/* Code block styling */
+.md-typeset pre > code {
+  border-radius: 0.25rem;
+}
+
+/* Table styling */
+.md-typeset table:not([class]) {
+  border-radius: 0.25rem;
+  overflow: hidden;
+  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
+}
+
+/* Mermaid diagram theming for dark mode */
+[data-md-color-scheme="slate"] .mermaid {
+  --md-mermaid-bg-color: var(--md-default-bg-color);
+  --md-mermaid-edge-color: var(--md-default-fg-color);
+  --md-mermaid-node-bg-color: var(--md-code-bg-color);
+  --md-mermaid-node-fg-color: var(--md-code-fg-color);
+}
+
+/* Header anchor links */
+.md-typeset .headerlink {
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.md-typeset :hover > .headerlink {
+  opacity: 1;
+}
+
+/* Tab styling */
+.md-typeset .tabbed-labels {
+  border-radius: 0.25rem 0.25rem 0 0;
+}
+
+/* Footnote styling */
+.md-typeset .footnote-backref {
+  font-size: 0.75rem;
+  vertical-align: super;
+}
+
+/* Search result highlighting */
+.md-search-result__article--active {
+  background-color: rgba(103, 58, 183, 0.1);
+}
+
+/* Navigation tweaks */
+.md-nav__link--active {
+  font-weight: 600;
+}
+
+/* Content width adjustments */
+.md-grid {
+  max-width: 72rem;
+}
+
+.md-content__inner {
+  margin: 0 1rem;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 76.1875em) {
+  .md-sidebar--primary {
+    display: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .md-header,
+  .md-sidebar,
+  .md-footer {
+    display: none;
+  }
+  
+  .md-content {
+    margin: 0;
+  }
+}
+
+/* Custom admonition for MX250-specific notes */
+.md-typeset .admonition.mx250,
+.md-typeset details.mx250 {
+  border-color: #00ADD8;
+}
+
+.md-typeset .admonition.mx250 > .admonition-title::before,
+.md-typeset details.mx250 > .admonition-title::before {
+  background-color: #00ADD8;
+}
